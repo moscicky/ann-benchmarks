@@ -238,6 +238,8 @@ def run_docker(definition, dataset, count, runs, timeout, batch, cpu_limit,
                 {'bind': '/home/app/data', 'mode': 'ro'},
             os.path.abspath('results'):
                 {'bind': '/home/app/results', 'mode': 'rw'},
+            os.path.abspath('qdrant_config'):
+                {'bind': '/home/app/config', 'mode': 'ro'}
         },
         cpuset_cpus=cpu_limit,
         mem_limit=mem_limit,

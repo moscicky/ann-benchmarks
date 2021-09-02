@@ -1,3 +1,4 @@
+import json
 import h5py
 import numpy
 import os
@@ -5,6 +6,7 @@ import random
 
 from urllib.request import urlopen
 from urllib.request import urlretrieve
+
 
 from ann_benchmarks.distance import dataset_transform
 
@@ -28,10 +30,11 @@ def get_dataset(which):
         url = 'http://ann-benchmarks.com/%s.hdf5' % which
         download(url, hdf5_fn)
     except:
-        print("Cannot download %s" % url)
-        if which in DATASETS:
-            print("Creating dataset locally")
-            DATASETS[which](hdf5_fn)
+        if not os.path.exists(hdf5_fn):
+            print("Cannot download %s, not found locally" % url)
+            if which in DATASETS:
+                print("Creating dataset locally")
+                DATASETS[which](hdf5_fn)
     hdf5_f = h5py.File(hdf5_fn, 'r')
 
     # here for backward compatibility, to ensure old datasets can still be used with newer versions
@@ -120,6 +123,16 @@ def train_test_split(X, test_size=10000, dimension=None):
     print('Splitting %d*%d into train/test' % (X.shape[0], dimension))
     return sklearn.model_selection.train_test_split(
         X, test_size=test_size, random_state=1)
+
+def vs(out_fn, variant, test_size=10000):
+    filename = "../data/vs-{}.json".format(variant)
+    data = []
+    with open(filename) as f:
+        for line in f:
+            data.append(json.loads(line)["embeddings"])
+    X = numpy.array(data)
+    X_train, X_test = train_test_split(X, test_size=test_size)
+    write_output(X_train, X_test, distance="euclidean", fn=out_fn)
 
 
 def glove(out_fn, d):
@@ -427,6 +440,10 @@ def lastfm(out_fn, n_dimensions, test_size=50000):
 
 
 DATASETS = {
+    'vs-100k-euclidean-test-1k': lambda out_fn: vs(out_fn, "100k", test_size=1000),
+    'vs-1m-euclidean-test-1k': lambda out_fn: vs(out_fn, "1m", test_size=1000),
+    'vs-100k-euclidean': lambda out_fn: vs(out_fn, "100k"),
+    'vs-1m-euclidean': lambda out_fn: vs(out_fn, "1m"),
     'deep-image-96-angular': deep_image,
     'fashion-mnist-784-euclidean': fashion_mnist,
     'gist-960-euclidean': gist,

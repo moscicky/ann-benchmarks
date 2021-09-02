@@ -1,0 +1,47 @@
+FROM ann-benchmarks
+
+WORKDIR /home/app
+
+ENV OPENBLAS_ARGS='DYNAMIC_ARCH=1'
+RUN apt-get update ; apt-get install -y clang libopenblas-dev libgfortran-8-dev gfortran
+
+RUN apt-get install -y \
+    build-essential \
+    curl
+
+# Get Rust
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN git clone https://github.com/qdrant/qdrant
+
+WORKDIR /home/app/qdrant
+RUN cargo build --release --bin qdrant
+
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update \
+    && apt-get install -y ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+EXPOSE 6333
+EXPOSE 6334
+
+ENV TZ=Etc/UTC \
+    RUN_MODE=production \
+    OPENBLAS_NUM_THREADS=1
+
+WORKDIR /home/app/
+RUN mkdir /home/app/runner
+RUN cp -r qdrant/target/release /home/app/runner/qdrant
+RUN cp -r qdrant/config /home/app/
+RUN chmod +x /home/app/runner/qdrant/qdrant
+
+RUN echo '\
+echo "Running entrypoint" \n\
+./runner/qdrant/qdrant & \n\
+sleep 5 \n\
+python3 -u /home/app/run_algorithm.py "$@"' > entrypoint.sh
+RUN chmod +x entrypoint.sh
+ENTRYPOINT ["/bin/bash", "/home/app/entrypoint.sh"]
